@@ -16,6 +16,7 @@ from neuralhydrology.utils.config import Config
 
 SINGLE_FREQ_MODELS = ["cudalstm", "ealstm", "customlstm", "embcudalstm", "gru", "transformer", "mclstm", "arlstm"]
 AUTOREGRESSIVE_MODELS = ['arlstm']
+ASSIMILATION_MODELS = ['cudalstm', "ealstm", "customlstm", "embcudalstm", "gru", "mclstm"]
 
 
 def get_model(cfg: Config) -> nn.Module:
@@ -31,6 +32,9 @@ def get_model(cfg: Config) -> nn.Module:
     nn.Module
         A new model instance of the type specified in the config.
     """
+    if cfg.model.lower() not in ASSIMILATION_MODELS and cfg.assimilation_config:
+        raise ValueError(f"Model {cfg.model} does not support data assimilation.")
+
     if cfg.model.lower() in SINGLE_FREQ_MODELS and len(cfg.use_frequencies) > 1:
         raise ValueError(f"Model {cfg.model} does not support multiple frequencies.")
 

@@ -17,6 +17,7 @@ def _get_args() -> dict:
     parser.add_argument('--directory', type=str, required=True)
     parser.add_argument('--gpu-ids', type=int, nargs='+', required=True)
     parser.add_argument('--runs-per-gpu', type=int, required=True)
+    parser.add_argument('--data-assimilation', type=bool, required=False, default=False)
 
     args = vars(parser.parse_args())
 
@@ -32,7 +33,7 @@ def _main():
     schedule_runs(**args)
 
 
-def schedule_runs(mode: str, directory: Path, gpu_ids: List[int], runs_per_gpu: int):
+def schedule_runs(mode: str, directory: Path, gpu_ids: List[int], runs_per_gpu: int, data_assimilation: bool):
     """Schedule multiple runs across one or multiple GPUs.
     
     Parameters
@@ -48,6 +49,8 @@ def schedule_runs(mode: str, directory: Path, gpu_ids: List[int], runs_per_gpu: 
         List of GPU ids to use for training/evaluating.
     runs_per_gpu : int
         Number of runs to start on a single GPU.
+    data_assimilation : bool
+        Inidcates whether to evaluate using data assimilation.
 
     """
 
@@ -66,7 +69,7 @@ def schedule_runs(mode: str, directory: Path, gpu_ids: List[int], runs_per_gpu: 
 
     # array to keep track on how many runs are currently running per GPU
     n_parallel_runs = len(gpu_ids) * runs_per_gpu
-    gpu_counter = np.zeros((len(gpu_ids)), dtype=np.int)
+    gpu_counter = np.zeros((len(gpu_ids)), dtype=int)
 
     # for command line tool, we need full path to the main.py script
     script_path = str(Path(__file__).absolute().parent / "nh_run.py")
@@ -91,7 +94,7 @@ def schedule_runs(mode: str, directory: Path, gpu_ids: List[int], runs_per_gpu: 
             if mode in ['train', 'finetune']:
                 run_command = f"python {script_path} {mode} --config-file {process} --gpu {gpu_id}"
             else:
-                run_command = f"python {script_path} evaluate --run-dir {process} --gpu {gpu_id}"
+                run_command = f"python {script_path} evaluate --run-dir {process} --gpu {gpu_id} --data-assimilation {data_assimilation}"
             print(f"Starting run {counter+1}/{len(processes)}: {run_command}")
             running_processes[(run_command, node_id)] = subprocess.Popen(run_command,
                                                                          stdout=subprocess.DEVNULL,

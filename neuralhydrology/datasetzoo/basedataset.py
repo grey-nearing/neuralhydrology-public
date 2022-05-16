@@ -19,6 +19,7 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from neuralhydrology.datautils import utils
+from neuralhydrology import modelzoo
 from neuralhydrology.utils.config import Config
 from neuralhydrology.utils import samplingutils
 
@@ -284,6 +285,7 @@ class BaseDataset(Dataset):
                 keep_cols += [i for inputs in self.cfg.dynamic_inputs.values() for i in inputs]
             # make sure that even inputs that are used in multiple frequencies occur only once in the df
 
+            # sort the order of the columns so that this remains the same across different hardware
             keep_cols = list(sorted(set(keep_cols)))
 
             if not self._disable_pbar:
@@ -505,6 +507,7 @@ class BaseDataset(Dataset):
             for f in valid_samples:
                 # store pointer to basin and the sample's index in each frequency
                 lookup.append((basin, [frequency_maps[freq][int(f)] for freq in self.frequencies]))
+
 
             # only store data if this basin has at least one valid sample in the given period
             if valid_samples.size > 0:

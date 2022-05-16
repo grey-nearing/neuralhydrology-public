@@ -19,13 +19,15 @@ from neuralhydrology.datasetzoo import get_dataset
 from neuralhydrology.datasetzoo.basedataset import BaseDataset
 from neuralhydrology.datautils.utils import get_frequency_factor, load_basin_file, sort_frequencies
 from neuralhydrology.evaluation import plots
+from neuralhydrology.evaluation.assimilation import Assimilation
 from neuralhydrology.evaluation.metrics import calculate_metrics, get_available_metrics
 from neuralhydrology.evaluation.utils import load_scaler, load_basin_id_encoding
-from neuralhydrology.modelzoo import get_model
+from neuralhydrology.modelzoo import get_model, ASSIMILATION_MODELS
 from neuralhydrology.modelzoo.basemodel import BaseModel
 from neuralhydrology.training import get_loss_obj
 from neuralhydrology.training.logger import Logger
 from neuralhydrology.utils.config import Config
+
 from neuralhydrology.utils.errors import AllNaNError, NoTrainDataError
 
 LOGGER = logging.getLogger(__name__)
@@ -146,7 +148,8 @@ class BaseTester(object):
                  save_results: bool = True,
                  metrics: Union[list, dict] = [],
                  model: torch.nn.Module = None,
-                 experiment_logger: Logger = None) -> dict:
+                 experiment_logger: Logger = None,
+                 data_assimilation: bool = False) -> dict:
         """Evaluate the model.
         
         Parameters
@@ -161,12 +164,18 @@ class BaseTester(object):
             If a model is passed, this is used for validation.
         experiment_logger : Logger, optional
             Logger can be passed during training to log metrics
+        data_assimilation: bool, optional
+            If 'True', performs data assimilation during model evaluation. By default, 'False'.
 
         Returns
         -------
         dict
             A dictionary containing one xarray per basin with the evaluation results.
         """
+        # check if data assimilation is request and model supports data assimilation, otherwise early stop
+        if data_assimilation and self.cfg.model.lower() not in ASSIMILATION_MODELS:
+            raise RuntimeError("This model currently does not support data assimilation.")
+
         if model is None:
             if self.init_model:
                 self._load_weights(epoch=epoch)
@@ -207,7 +216,7 @@ class BaseTester(object):
 
             loader = DataLoader(ds, batch_size=self.cfg.batch_size, num_workers=0)
 
-            y_hat, y, loss = self._evaluate(model, loader, ds.frequencies)
+            y_hat, y, loss = self._evaluate(model, loader, ds.frequencies, data_assimilation)
 
             # log loss of this basin plus number of samples in the logger to compute epoch aggregates later
             if experiment_logger is not None:
@@ -331,7 +340,7 @@ class BaseTester(object):
             self._create_and_log_figures(results, experiment_logger, epoch)
 
         if save_results:
-            self._save_results(results, epoch)
+            self._save_results(results, epoch, data_assimilation)
 
         return results
 
@@ -355,7 +364,7 @@ class BaseTester(object):
                 # make sure the preamble is a valid file name
                 experiment_logger.log_figures(figures, freq, preamble=re.sub(r"[^A-Za-z0-9\._\-]+", "", target_var))
 
-    def _save_results(self, results: dict, epoch: int = None):
+    def _save_results(self, results: dict, epoch: int = None, data_assimilation: bool = False):
         """Store results in various formats to disk.
         
         Developer note: We cannot store the time series data (the xarray objects) as netCDF file but have to use
@@ -367,6 +376,13 @@ class BaseTester(object):
 
         # store all results packed as pickle file
         result_file = self.run_dir / self.period / weight_file.stem / f"{self.period}_results.p"
+
+        # use a different file name for results from data assimilation
+        if data_assimilation:
+            result_file = self.run_dir / self.period / weight_file.stem / f"{self.period}_results_data_assimilation.p"
+        else:
+            result_file = self.run_dir / self.period / weight_file.stem / f"{self.period}_results.p"
+
         result_file.parent.mkdir(parents=True, exist_ok=True)
         with result_file.open("wb") as fp:
             pickle.dump(results, fp)
@@ -406,39 +422,48 @@ class BaseTester(object):
 
         return df
 
-    def _evaluate(self, model: BaseModel, loader: DataLoader, frequencies: List[str]):
+    def _evaluate(self, model: BaseModel, loader: DataLoader, frequencies: List[str], data_assimilation: bool):
         """Evaluate model"""
         predict_last_n = self.cfg.predict_last_n
         if isinstance(predict_last_n, int):
             predict_last_n = {frequencies[0]: predict_last_n}  # if predict_last_n is int, there's only one frequency
 
+        # initialize data assimilation object in case of user specified assimilation mode
+        if data_assimilation:
+            assimilation = Assimilation(self.cfg.assimilation_config)
+
         preds, obs = {}, {}
         losses = []
-        with torch.no_grad():
-            for data in loader:
+        for data in loader:
 
-                for key in data:
-                    data[key] = data[key].to(self.device)
-                predictions, loss = self._get_predictions_and_loss(model, data)
+            for key in data:
+                data[key] = data[key].to(self.device)
 
-                for freq in frequencies:
-                    if predict_last_n[freq] == 0:
-                        continue  # no predictions for this frequency
-                    freq_key = '' if len(frequencies) == 1 else f'_{freq}'
-                    y_hat_sub, y_sub = self._subset_targets(model, data, predictions, predict_last_n[freq], freq_key)
+            if data_assimilation:
+                predictions = assimilation.assimilate(model, data)
+                loss = self.loss_obj(predictions, data).item()
+            else:
+                with torch.no_grad():
+                    predictions, loss = self._get_predictions_and_loss(model, data)
 
-                    if freq not in preds:
-                        preds[freq] = y_hat_sub.detach().cpu()
-                        obs[freq] = y_sub.cpu()
-                    else:
-                        preds[freq] = torch.cat((preds[freq], y_hat_sub.detach().cpu()), 0)
-                        obs[freq] = torch.cat((obs[freq], y_sub.detach().cpu()), 0)
+            for freq in frequencies:
+                if predict_last_n[freq] == 0:
+                    continue  # no predictions for this frequency
+                freq_key = '' if len(frequencies) == 1 else f'_{freq}'
+                y_hat_sub, y_sub = self._subset_targets(model, data, predictions, predict_last_n[freq], freq_key)
 
-                losses.append(loss)
+                if freq not in preds:
+                    preds[freq] = y_hat_sub.detach().cpu()
+                    obs[freq] = y_sub.cpu()
+                else:
+                    preds[freq] = torch.cat((preds[freq], y_hat_sub.detach().cpu()), 0)
+                    obs[freq] = torch.cat((obs[freq], y_sub.detach().cpu()), 0)
 
-            for freq in preds.keys():
-                preds[freq] = preds[freq].numpy()
-                obs[freq] = obs[freq].numpy()
+            losses.append(loss)
+
+        for freq in preds.keys():
+            preds[freq] = preds[freq].numpy()
+            obs[freq] = obs[freq].numpy()
 
         # set to NaN explicitly if all losses are NaN to avoid RuntimeWarning
         mean_loss = np.nanmean(losses) if len(losses) > 0 and not all(np.isnan(l) for l in losses) else np.nan

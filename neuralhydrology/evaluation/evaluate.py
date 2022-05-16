@@ -4,7 +4,11 @@ from neuralhydrology.evaluation import get_tester
 from neuralhydrology.utils.config import Config
 
 
-def start_evaluation(cfg: Config, run_dir: Path, epoch: int = None, period: str = "test"):
+def start_evaluation(cfg: Config,
+                     run_dir: Path,
+                     epoch: int = None,
+                     period: str = "test",
+                     data_assimilation: bool = False):
     """Start evaluation of a trained network
 
     Parameters
@@ -17,7 +21,9 @@ def start_evaluation(cfg: Config, run_dir: Path, epoch: int = None, period: str 
         Define a specific epoch to evaluate. By default, the weights of the last epoch are used.
     period : {'train', 'validation', 'test'}, optional
         The period to evaluate, by default 'test'.
+    data_assimilation: bool, optional
+        If 'True', performs data assimilation during model evaluation. By default, 'False'.
 
     """
     tester = get_tester(cfg=cfg, run_dir=run_dir, period=period, init_model=True)
-    tester.evaluate(epoch=epoch, save_results=True, metrics=cfg.metrics)
+    tester.evaluate(epoch=epoch, save_results=True, metrics=cfg.metrics, data_assimilation=data_assimilation)

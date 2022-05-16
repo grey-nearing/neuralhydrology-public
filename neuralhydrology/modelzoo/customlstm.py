@@ -42,6 +42,11 @@ class CustomLSTM(BaseModel):
     >>> # Copy weights into the `LSTM` instance.
     >>> custom_lstm.copy_weights(optimized_lstm)
     """
+    # specify submodules of the model that can later be used for finetuning. Names must match class attributes
+    module_parts = ['embedding_net', 'cell', 'head']
+
+    # names of state variables in the returned dictionary of the forward function
+    state_var_names = ['h_n', 'c_n']
 
     def __init__(self, cfg: Config):
         super(CustomLSTM, self).__init__(cfg=cfg)
@@ -58,20 +63,16 @@ class CustomLSTM(BaseModel):
 
         self.head = get_head(cfg=cfg, n_in=self._hidden_size, n_out=self.output_size)
 
-    def forward(self,
-                data: Dict[str, torch.Tensor],
-                h_0: torch.Tensor = None,
-                c_0: torch.Tensor = None) -> Dict[str, torch.Tensor]:
+    def forward(self, data: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """Perform a forward pass on the LSTM model.
 
         Parameters
         ----------
         data : Dict[str, torch.Tensor]
-            Dictionary, containing input features as key-value pair.
-        h_0 : torch.Tensor, optional
-            Initial hidden state, by default 0.
-        c_0 : torch.Tensor, optional
-            Initial cell state, by default 0.
+            Dictionary, containing input features as key-value pairs. If the dictionary includes 'h_n' and/or 'c_n', 
+            this tensor will be used as initial hidden state and cell state, respectively. Otherwise, the initial hidden
+            and/or cell state defaults to a vector or zeros. The shape of the initial hidden an cell state has to be 
+            [batch size, hidden size].
 
         Returns
         -------
@@ -81,13 +82,22 @@ class CustomLSTM(BaseModel):
         # possibly pass dynamic and static inputs through embedding layers, then concatenate them
         x_d = self.embedding_net(data, concatenate_output=True)
 
-        seq_len, batch_size, _ = x_d.size()
+        _, batch_size, _ = x_d.size()
 
         # TODO: move hidden and cell state initialization to init and only reset states in forward pass to zero.
-        if h_0 is None:
-            h_0 = x_d.data.new(batch_size, self._hidden_size).zero_()
-        if c_0 is None:
-            c_0 = x_d.data.new(batch_size, self._hidden_size).zero_()
+        # check if data contains initial hidden state, otherwise create a vector or zeros
+        batch_size = x_d.shape[1]
+        if 'h_n' in data.keys():
+            h_0 = data['h_n']
+        else:
+            h_0 = x_d.new_zeros((batch_size, self._hidden_size))
+
+        # check if data contains initial cell state, otherwise create a vector or zeros
+        if 'c_n' in data.keys():
+            c_0 = data['c_n']
+        else:
+            c_0 = x_d.new_zeros((batch_size, self._hidden_size))
+
         h_x = (h_0, c_0)
 
         output = defaultdict(list)

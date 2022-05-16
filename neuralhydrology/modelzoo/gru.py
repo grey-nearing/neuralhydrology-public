@@ -24,6 +24,9 @@ class GRU(BaseModel):
     # specify submodules of the model that can later be used for finetuning. Names must match class attributes
     module_parts = ['embedding_net', 'gru', 'head']
 
+    # names of state variables in the returned dictionary of the forward function
+    state_var_names = ['h_n']
+
     def __init__(self, cfg: Config):
 
         super(GRU, self).__init__(cfg=cfg)
@@ -42,7 +45,9 @@ class GRU(BaseModel):
         Parameters
         ----------
         data : Dict[str, torch.Tensor]
-            Dictionary, containing input features as key-value pair.
+            Dictionary, containing input features as key-value pairs. If the dictionary includes 'h_n' this tensor will 
+            be used as initial hidden state. Otherwise, the initial hidden state defaults to a vector or zeros. The 
+            shape of the initial hidden state has to be [1, batch size, hidden size].
 
         Returns
         -------
@@ -54,8 +59,15 @@ class GRU(BaseModel):
         # possibly pass dynamic and static inputs through embedding layers, then concatenate them
         x_d = self.embedding_net(data, concatenate_output=True)
 
+        # check if data contains initial hidden state, otherwise create a vector or zeros
+        batch_size = x_d.shape[1]
+        if 'h_n' in data.keys():
+            h_0 = data['h_n']
+        else:
+            h_0 = x_d.new_zeros((1, batch_size, self.gru.hidden_size))
+
         # run the actual GRU
-        gru_output, h_n = self.gru(input=x_d)
+        gru_output, h_n = self.gru(x_d, h_0)
 
         # reshape to [batch_size, 1, n_hiddens]
         h_n = h_n.transpose(0, 1)

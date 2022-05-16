@@ -18,8 +18,15 @@ def _get_args() -> dict:
     parser.add_argument('--run-dir', type=str)
     parser.add_argument('--epoch', type=int, help="Epoch, of which the model should be evaluated")
     parser.add_argument('--period', type=str, choices=["train", "validation", "test"], default="test")
-    parser.add_argument('--gpu', type=int,
+    parser.add_argument('--gpu',
+                        type=int,
                         help="GPU id to use. Overrides config argument 'device'. Use a value < 0 for CPU.")
+    parser.add_argument('--data-assimilation',
+                        type=_str2bool,
+                        default=False,
+                        const=True,
+                        nargs='?',
+                        help="If 'True', performs data assimilation during model evaluation.")
     args = vars(parser.parse_args())
 
     if (args["mode"] in ["train", "finetune"]) and (args["config_file"] is None):
@@ -48,7 +55,11 @@ def _main():
     elif args["mode"] == "finetune":
         finetune(config_file=Path(args["config_file"]), gpu=args["gpu"])
     elif args["mode"] == "evaluate":
-        eval_run(run_dir=Path(args["run_dir"]), period=args["period"], epoch=args["epoch"], gpu=args["gpu"])
+        eval_run(run_dir=Path(args["run_dir"]),
+                 period=args["period"],
+                 epoch=args["epoch"],
+                 gpu=args["gpu"],
+                 data_assimilation=args["data_assimilation"])
     else:
         raise RuntimeError(f"Unknown mode {args['mode']}")
 
@@ -143,7 +154,7 @@ def finetune(config_file: Path = None, gpu: int = None):
     start_training(config)
 
 
-def eval_run(run_dir: Path, period: str, epoch: int = None, gpu: int = None):
+def eval_run(run_dir: Path, period: str, epoch: int = None, gpu: int = None, data_assimilation: bool = False):
     """Start evaluating a trained model.
     
     Parameters
@@ -156,6 +167,8 @@ def eval_run(run_dir: Path, period: str, epoch: int = None, gpu: int = None):
         Define a specific epoch to use. By default, the weights of the last epoch are used.  
     gpu : int, optional
         GPU id to use. Will override config argument 'device'. A value less than zero indicates CPU.
+    data_assimilation: bool, optional
+        If 'True', performs data assimilation during model evaluation. By default, 'False'.
 
     """
     config = Config(run_dir / "config.yml")
@@ -166,7 +179,19 @@ def eval_run(run_dir: Path, period: str, epoch: int = None, gpu: int = None):
     if gpu is not None and gpu < 0:
         config.device = "cpu"
 
-    start_evaluation(cfg=config, run_dir=run_dir, epoch=epoch, period=period)
+    start_evaluation(cfg=config, run_dir=run_dir, epoch=epoch, period=period, data_assimilation=data_assimilation)
+
+
+def _str2bool(v):
+    # From: https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
 if __name__ == "__main__":

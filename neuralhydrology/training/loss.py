@@ -98,9 +98,12 @@ class BaseLoss(torch.nn.Module):
             freq_suffix = '' if freq == '' else f'_{freq}'
 
             # apply predict_last_n and mask for all outputs of this frequency at once
-            freq_pred, freq_gt = self._subset_in_time(
-                {key: prediction[f'{key}{freq_suffix}'] for key in self._prediction_keys},
-                {key: data[f'{key}{freq_suffix}'] for key in self._ground_truth_keys}, self._predict_last_n[freq])
+            try:
+                freq_pred, freq_gt = self._subset_in_time(
+                    {key: prediction[f'{key}{freq_suffix}'] for key in self._prediction_keys},
+                    {key: data[f'{key}{freq_suffix}'] for key in self._ground_truth_keys}, self._predict_last_n[freq])
+            except:
+                import pdb; pdb.set_trace()
 
             # remember subsets for multi-frequency component
             prediction_sub.update({f'{key}{freq_suffix}': freq_pred[key] for key in freq_pred.keys()})

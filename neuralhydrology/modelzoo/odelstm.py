@@ -56,6 +56,9 @@ class ODELSTM(BaseModel):
     # specify submodules of the model that can later be used for finetuning. Names must match class attributes
     module_parts = ['lstm_cell', 'ode_cell', 'head']
 
+    # names of state variables in the returned dictionary of the forward function
+    state_var_names = ['h_n', 'c_n']
+
     def __init__(self, cfg: Config):
         super(ODELSTM, self).__init__(cfg=cfg)
         if len(cfg.use_frequencies) < 2:
@@ -184,6 +187,10 @@ class ODELSTM(BaseModel):
         ----------
         data : Dict[str, torch.Tensor]
             Input data for the forward pass. See the documentation overview of all models for details on the dict keys.
+            If the dictionary includes 'h_n' and/or 'c_n', this tensor will be used as initial hidden state and cell 
+            state, respectively. Otherwise, the initial hidden and/or cell state defaults to a vector or zeros. The 
+            shape of the initial hidden an cell state has to be [batch size, hidden size].
+
 
         Returns
         -------
@@ -197,8 +204,18 @@ class ODELSTM(BaseModel):
                                          self.cfg.ode_random_freq_lower_bound, self._frequencies[0])
 
         batch_size = slice_one.shape[1]
-        h_0 = slice_one.data.new(batch_size, self.cfg.hidden_size).zero_()
-        c_0 = slice_one.data.new(batch_size, self.cfg.hidden_size).zero_()
+        # check if data contains initial hidden state, otherwise create a vector or zeros
+        if 'h_n' in data.keys():
+            h_0 = data['h_n']
+        else:
+            h_0 = slice_one.new_zeros((batch_size, self.lstm_cell.hidden_size))
+
+        # check if data contains initial cell state, otherwise create a vector or zeros
+        if 'c_n' in data.keys():
+            c_0 = data['c_n']
+        else:
+            c_0 = slice_one.new_zeros((batch_size, self.lstm_cell.hidden_size))
+
         h_n, c_n = self._run_odelstm(slice_one, h_0, c_0)
 
         prev_freq = self._frequencies[0]

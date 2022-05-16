@@ -35,6 +35,9 @@ class EALSTM(BaseModel):
     # specify submodules of the model that can later be used for finetuning. Names must match class attributes
     module_parts = ['embedding_net', 'input_gate', 'dynamic_gates', 'head']
 
+    # names of state variables in the returned dictionary of the forward function
+    state_var_names = ['h_n', 'c_n']
+
     def __init__(self, cfg: Config):
         super(EALSTM, self).__init__(cfg=cfg)
         self._hidden_size = cfg.hidden_size
@@ -49,8 +52,8 @@ class EALSTM(BaseModel):
 
         self.head = get_head(cfg=cfg, n_in=cfg.hidden_size, n_out=self.output_size)
 
-    def _cell(self, x: torch.Tensor, i: torch.Tensor, states: Tuple[torch.Tensor,
-                                                                    torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _cell(self, x: torch.Tensor, i: torch.Tensor,
+              states: Tuple[torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
         """Single time step logic of EA-LSTM cell"""
         h_0, c_0 = states
 
@@ -69,7 +72,10 @@ class EALSTM(BaseModel):
         Parameters
         ----------
         data : Dict[str, torch.Tensor]
-            Dictionary, containing input features as key-value pairs.
+            Dictionary, containing input features as key-value pairs. If the dictionary includes 'h_n' and/or 'c_n', 
+            this tensor will be used as initial hidden state and cell state, respectively. Otherwise, the initial hidden
+            and/or cell state defaults to a vector or zeros. The shape of the initial hidden an cell state has to be 
+            [1, batch size, hidden size].
 
         Returns
         -------
@@ -87,8 +93,18 @@ class EALSTM(BaseModel):
             raise ValueError('Need x_s or x_one_hot in forward pass.')
 
         # TODO: move hidden and cell state initialization to init and only reset states in forward pass to zero.
-        h_t = x_d.data.new(x_d.shape[1], self._hidden_size).zero_()
-        c_t = x_d.data.new(x_d.shape[1], self._hidden_size).zero_()
+        # check if data contains initial hidden state, otherwise create a vector or zeros
+        batch_size = x_d.shape[1]
+        if 'h_n' in data.keys():
+            h_t = data['h_n']
+        else:
+            h_t = x_d.new_zeros((batch_size, self._hidden_size))
+
+        # check if data contains initial cell state, otherwise create a vector or zeros
+        if 'c_n' in data.keys():
+            c_t = data['c_n']
+        else:
+            c_t = x_d.new_zeros((batch_size, self._hidden_size))
 
         # empty lists to temporally store all intermediate hidden/cell states
         h_n, c_n = [], []

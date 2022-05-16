@@ -22,6 +22,9 @@ class BaseModel(nn.Module):
     # specify submodules of the model that can later be used for finetuning. Names must match class attributes
     module_parts = []
 
+    # names of state variables in the returned dictionary of the forward function
+    state_var_names = []
+
     def __init__(self, cfg: Config):
         super(BaseModel, self).__init__()
         self.cfg = cfg

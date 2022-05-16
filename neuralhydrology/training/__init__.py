@@ -1,6 +1,6 @@
 import logging
 import warnings
-from typing import List
+from typing import List, Iterable
 
 import torch
 
@@ -11,25 +11,25 @@ from neuralhydrology.utils.config import Config
 LOGGER = logging.getLogger(__name__)
 
 
-def get_optimizer(model: torch.nn.Module, cfg: Config) -> torch.optim.Optimizer:
+def get_optimizer(parameters: Iterable, cfg: Config) -> torch.optim.Optimizer:
     """Get specific optimizer object, depending on the run configuration.
     
     Currently only 'Adam' is supported.
     
     Parameters
     ----------
-    model : torch.nn.Module
-        The model to be optimized.
+    parameters : Iterable
+        An iterable of `torch.Tensor`s or `dict`s. Specifies what Tensors should be optimized.
     cfg : Config
         The run configuration.
 
     Returns
     -------
     torch.optim.Optimizer
-        Optimizer object that can be used for model training.
+        Optimizer object that can be used for training.
     """
     if cfg.optimizer.lower() == "adam":
-        optimizer = torch.optim.Adam(model.parameters(), lr=cfg.learning_rate[0])
+        optimizer = torch.optim.Adam(parameters, lr=cfg.learning_rate[0])
     else:
         raise NotImplementedError(f"{cfg.optimizer} not implemented or not linked in `get_optimizer()`")
 
