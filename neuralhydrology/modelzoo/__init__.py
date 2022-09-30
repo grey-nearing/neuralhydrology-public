@@ -9,6 +9,7 @@ from neuralhydrology.modelzoo.ealstm import EALSTM
 from neuralhydrology.modelzoo.embcudalstm import EmbCudaLSTM
 from neuralhydrology.modelzoo.gru import GRU
 from neuralhydrology.modelzoo.mclstm import MCLSTM
+from neuralhydrology.modelzoo.linearreservoirs import LinearReservoirs
 from neuralhydrology.modelzoo.mtslstm import MTSLSTM
 from neuralhydrology.modelzoo.odelstm import ODELSTM
 from neuralhydrology.modelzoo.transformer import Transformer
@@ -16,7 +17,7 @@ from neuralhydrology.utils.config import Config
 
 SINGLE_FREQ_MODELS = ["cudalstm", "ealstm", "customlstm", "embcudalstm", "gru", "transformer", "mclstm", "arlstm"]
 AUTOREGRESSIVE_MODELS = ['arlstm']
-
+CONSERVATION_MODELS = ["mclstm", "linear_reservoir"]
 
 def get_model(cfg: Config) -> nn.Module:
     """Get model object, depending on the run configuration.
@@ -37,7 +38,7 @@ def get_model(cfg: Config) -> nn.Module:
     if cfg.model.lower() not in AUTOREGRESSIVE_MODELS and cfg.autoregressive_inputs:
         raise ValueError(f"Model {cfg.model} does not support autoregression.")
 
-    if cfg.model.lower() != "mclstm" and cfg.mass_inputs:
+    if cfg.model.lower() not in CONSERVATION_MODELS and cfg.mass_inputs:
         raise ValueError(f"The use of 'mass_inputs' with {cfg.model} is not supported.")
 
     if cfg.model.lower() == "arlstm":
@@ -57,6 +58,8 @@ def get_model(cfg: Config) -> nn.Module:
         model = GRU(cfg=cfg)
     elif cfg.model.lower() == "embcudalstm":
         model = EmbCudaLSTM(cfg=cfg)
+    elif cfg.model.lower() == "linear_reservoir":
+        model = LinearReservoirs(cfg=cfg)
     elif cfg.model.lower() == "mtslstm":
         model = MTSLSTM(cfg=cfg)
     elif cfg.model.lower() == "odelstm":

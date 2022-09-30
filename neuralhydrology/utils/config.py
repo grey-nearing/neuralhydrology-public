@@ -248,6 +248,10 @@ class Config(object):
         return self._get_value_verbose("batch_size")
 
     @property
+    def bucket_layers(self) -> int:
+        return self._as_default_list(self._cfg.get("bucket_layers", []))
+
+    @property
     def cache_validation_data(self) -> bool:
         return self._cfg.get("cache_validation_data", True)
 
@@ -403,6 +407,42 @@ class Config(object):
     @property
     def lagged_features(self) -> dict:
         return self._as_default_dict(self._cfg.get("lagged_features", {}))
+
+    @property
+    def leaky_bucket_parameterization_hidden_sizes(self) -> int:
+        return self._as_default_list(self._cfg.get("leaky_bucket_parameterization_hidden_sizes", []))
+
+    @property
+    def leaky_bucket_parameterization_activation(self) -> int:
+        return self._cfg.get("leaky_bucket_parameterization_activation", None)
+
+    @property
+    def leaky_bucket_parameterization_dropout(self) -> int:
+        return self._cfg.get("leaky_bucket_parameterization_dropout", None)
+
+    @property
+    def leaky_bucket_sink_source_hidden_sizes(self) -> int:
+        return self._as_default_list(self._cfg.get("leaky_bucket_sink_source_hidden_sizes", []))
+
+    @property
+    def leaky_bucket_sink_source_activation(self) -> int:
+        return self._cfg.get("leaky_bucket_sink_source_activation", None)
+
+    @property
+    def leaky_bucket_sink_source_dropout(self) -> int:
+        return self._cfg.get("leaky_bucket_sink_source_dropout", None)
+
+    @property
+    def leaky_bucket_flux_partition_hidden_sizes(self) -> int:
+        return self._as_default_list(self._cfg.get("leaky_bucket_flux_partition_hidden_sizes", []))
+
+    @property
+    def leaky_bucket_flux_partition_activation(self) -> int:
+        return self._cfg.get("leaky_bucket_flux_partition_activation", None)
+
+    @property
+    def leaky_bucket_flux_partition_dropout(self) -> int:
+        return self._cfg.get("leaky_bucket_flux_partition_dropout", None)
 
     @property
     def learning_rate(self) -> Dict[int, float]:
