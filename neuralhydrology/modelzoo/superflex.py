@@ -265,7 +265,7 @@ class RoutingReservoir(torch.nn.Module):
         self.storage = self.storage.clone() + x_in
 
         # Ensure that the bucket rate parameter is in (0, 1).
-        rate = torch.unsqueeze(torch.nn.functional.sigmoid(rate), dim=-1)
+        rate = torch.unsqueeze(torch.sigmoid(rate), dim=-1)
 
         # Outflow from leaky bucket.
         outflow = rate * self.storage
@@ -337,7 +337,7 @@ class SnowReservoir(torch.nn.Module):
 
         # Outflow from leaky bucket is snowmelt.
         # The rate parameter is in (0, 1).
-        rate = torch.unsqueeze(torch.nn.functional.sigmoid(rate), dim=-1)       
+        rate = torch.unsqueeze(torch.sigmoid(rate), dim=-1)       
         snowmelt = rate * self.storage
         self.storage = self.storage.clone() - snowmelt
 
