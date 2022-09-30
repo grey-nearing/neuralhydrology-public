@@ -15,6 +15,66 @@ from neuralhydrology.datautils import pet
 LOGGER = logging.getLogger(__name__)
 
 
+def calculate_camels_us_pet(data_dir: Path,
+                            basins: List[str],
+                            forcings: str,
+                            variable_names: Dict[str, str] = None,
+                            output_file: Path = None) -> Dict[str, pd.DataFrame]:
+    """Calculate PET for the CAMELS US dataset.
+    
+    Parameters
+    ----------
+    data_dir : Path
+        Path to the CAMELS US directory.
+    basins : List[str]
+        List of basin ids.
+    forcings : str
+        Can be e.g. 'daymet' or 'nldas', etc. Must match the folder names in the 'basin_mean_forcing' directory.
+    variable_names : Dict[str, str], optional
+        Mapping of the forcings' variable names, needed if forcings other than DayMet, Maurer, or NLDAS are used.
+        If provided, this must be a dictionary that maps the keys 'prcp', 'tmin', 'tmax', 'srad' to the forcings'
+        respective variable names.
+    output_file : Path, optional
+        If specified, stores the resulting dictionary of DataFrames to this location as a pickle dump.
+
+    Returns
+    -------
+    Dict[str, pd.DataFrame]
+        Dictionary with one time-indexed DataFrame per basin.
+    """
+    camels_attributes = load_camels_us_attributes(data_dir=data_dir, basins=basins)
+    additional_features = {}
+
+    if variable_names is None:
+        if forcings.startswith('nldas'):
+            variable_names = {'prcp': 'PRCP(mm/day)', 'tmin': 'Tmin(C)', 'tmax': 'Tmax(C)', 'srad': 'SRAD(W/m2)'}
+        elif forcings.startswith('daymet') or forcings.startswith('maurer'):
+            variable_names = {'prcp': 'prcp(mm/day)', 'tmin': 'tmin(C)', 'tmax': 'tmax(C)', 'srad': 'srad(W/m2)'}
+        else:
+            raise ValueError(f'No predefined variable mapping for {forcings} forcings. Provide one in variable_names.')
+
+    dfs = {}
+    for basin in tqdm(basins, file=sys.stdout):
+        df, _ = load_camels_us_forcings(data_dir=data_dir, basin=basin, forcings=forcings)
+        lat = camels_attributes.loc[camels_attributes.index == basin, 'gauge_lat'].values
+        elev = camels_attributes.loc[camels_attributes.index == basin, 'elev_mean'].values
+        df["PET(mm/d)"] = pet.get_priestley_taylor_pet(t_min=df[variable_names['tmin']].values,
+                                                       t_max=df[variable_names['tmax']].values,
+                                                       s_rad=df[variable_names['srad']].values,
+                                                       lat=lat,
+                                                       elev=elev,
+                                                       doy=df.index.dayofyear.values)
+        dfs[basin] = df["PET(mm/d)"].to_frame()
+
+    if output_file is not None:
+        with output_file.open("wb") as fp:
+            pickle.dump(dfs, fp)
+        LOGGER.info(f"Precalculated features successfully stored at {output_file}")
+
+    return additional_features
+
+
+
 def calculate_camels_us_dyn_climate_indices(data_dir: Path,
                                          basins: List[str],
                                          window_length: int,
