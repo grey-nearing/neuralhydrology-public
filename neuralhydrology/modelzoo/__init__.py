@@ -12,12 +12,13 @@ from neuralhydrology.modelzoo.mclstm import MCLSTM
 from neuralhydrology.modelzoo.linearreservoirs import LinearReservoirs
 from neuralhydrology.modelzoo.mtslstm import MTSLSTM
 from neuralhydrology.modelzoo.odelstm import ODELSTM
+from neuralhydrology.modelzoo.superflex import SuperFlex
 from neuralhydrology.modelzoo.transformer import Transformer
 from neuralhydrology.utils.config import Config
 
 SINGLE_FREQ_MODELS = ["cudalstm", "ealstm", "customlstm", "embcudalstm", "gru", "transformer", "mclstm", "arlstm"]
 AUTOREGRESSIVE_MODELS = ['arlstm']
-CONSERVATION_MODELS = ["mclstm", "linear_reservoir"]
+CONSERVATION_MODELS = ["mclstm", "linear_reservoir", "superflex"]
 
 def get_model(cfg: Config) -> nn.Module:
     """Get model object, depending on the run configuration.
@@ -66,6 +67,8 @@ def get_model(cfg: Config) -> nn.Module:
         model = ODELSTM(cfg=cfg)
     elif cfg.model.lower() == "mclstm":
         model = MCLSTM(cfg=cfg)
+    elif cfg.model.lower() == "superflex":
+        model = SuperFlex(cfg=cfg)
     elif cfg.model.lower() == "transformer":
         model = Transformer(cfg=cfg)
     else:
