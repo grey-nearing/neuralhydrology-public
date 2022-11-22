@@ -62,8 +62,8 @@ class Basque(BaseDataset):
         with open(filename, 'rt') as f:
             df = pd.read_csv(f)
 
-        converted_date = [_convert_datetime(date) for date in df['date']]
-        df['date'] = converted_date
+        # converted_date = [_convert_datetime(date) for date in df['date']]
+        # df['date'] = converted_date
         df = df.set_index("date")
 
         # replace invalid discharge values by NaNs

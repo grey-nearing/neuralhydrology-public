@@ -1,10 +1,10 @@
 # --- Experiment configurations --------------------------------------------------------------------
 
 # experiment name, used as folder name
-experiment_name: single_basin
+experiment_name: 
 
 # place to store run directory (if empty runs are stored in code_dir/runs/)
-run_dir: 
+run_dir: single_basin
 
 # files to specify training, validation and test basins (relative to code root or absolute path)
 train_basin_file: 1_basin_list.txt 
@@ -118,7 +118,7 @@ transformer_nheads:
 # ----> General settings <----
 
 # Number of cell states of the LSTM
-hidden_size: 64
+hidden_size: 256
 
 # Initial bias value of the forget gate
 initial_forget_bias: 3
@@ -146,7 +146,7 @@ learning_rate:
   25: 0.0001
 
 # Mini-batch size
-batch_size: 64
+batch_size: 256
 
 # Number of training epochs
 epochs: 30
