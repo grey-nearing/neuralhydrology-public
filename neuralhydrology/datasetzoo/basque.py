@@ -58,12 +58,12 @@ class Basque(BaseDataset):
     def _load_basin_data(self, basin: str) -> pd.DataFrame:
         """Load input and output data from text files."""
         # load file for basin
-        filename = self.cfg.data_dir / f'{basin}.csv'
+        filename = self.cfg.data_dir / f'{basin}.txt'
         with open(filename, 'rt') as f:
             df = pd.read_csv(f)
 
-        # converted_date = [_convert_datetime(date) for date in df['date']]
-        # df['date'] = converted_date
+        converted_date = [_convert_datetime(date) for date in df['date']]
+        df['date'] = converted_date
         df = df.set_index("date")
 
         # replace invalid discharge values by NaNs
@@ -75,5 +75,6 @@ class Basque(BaseDataset):
         raise NotImplementedError('Attributes are not available for Basque data.')
 
 def _convert_datetime(date: str) -> str:
-    datestr = date.split(' ')[0]
-    return pd.to_datetime(datetime.datetime.strptime(datestr, '%m/%d/%Y').strftime('%Y-%m-%d'))
+    #datestr = date.split(' ')[0]
+    #return pd.to_datetime(datetime.datetime.strptime(datestr, '%m/%d/%Y').strftime('%Y-%m-%d'))
+    return pd.to_datetime(date)
