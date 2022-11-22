@@ -1,4 +1,5 @@
 from neuralhydrology.datasetzoo.basedataset import BaseDataset
+from neuralhydrology.datasetzoo.basque import Basque
 from neuralhydrology.datasetzoo.camelsaus import CamelsAUS
 from neuralhydrology.datasetzoo.camelsbr import CamelsBR
 from neuralhydrology.datasetzoo.camelscl import CamelsCL
@@ -58,7 +59,9 @@ def get_dataset(cfg: Config,
     NotImplementedError
         If no data set class is implemented for the 'dataset' argument in the config.
     """
-    if cfg.dataset.lower() == "camels_us":
+    if cfg.dataset.lower() == "basque":
+        Dataset = Basque
+    elif cfg.dataset.lower() == "camels_us":
         Dataset = CamelsUS
     elif cfg.dataset.lower() == "camels_gb":
         Dataset = CamelsGB
