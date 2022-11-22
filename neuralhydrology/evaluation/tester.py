@@ -179,7 +179,7 @@ class BaseTester(object):
         if self.period == "validation":
             if len(basins) > self.cfg.validate_n_random_basins:
                 random.shuffle(basins)
-                basins = basins[:self.cfg.validate_n_random_basins]
+                basins = ['Abusu'] #basins[:self.cfg.validate_n_random_basins]
 
         # force model to train-mode when doing mc-dropout evaluation
         if self.cfg.mc_dropout:
